@@ -1,0 +1,13 @@
+plugins
+logs
+keys
+config
+/.env
+dags/__pycache__
+dags/modules/__pycache__
+terraform/variables.tf
+terraform/.terraform
+terraform/.terraform.*
+terraform.tfstate.backup
+terraform.tfstate
+*.ipynb

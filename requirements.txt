@@ -1,0 +1,5 @@
+google-cloud-storage
+google-cloud-bigquery
+dbt-core
+dbt-bigquery
+apache-airflow-providers-google
