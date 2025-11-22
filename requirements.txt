@@ -3,3 +3,7 @@ google-cloud-bigquery
 dbt-core
 dbt-bigquery
 apache-airflow-providers-google
+apache-airflow-providers-fab
+apache-airflow[auth]
+connexion
+connexion[swagger-ui]

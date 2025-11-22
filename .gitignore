@@ -11,3 +11,10 @@ terraform/.terraform.*
 terraform.tfstate.backup
 terraform.tfstate
 *.ipynb
+practice/
+__pycache__
+.pytest_cache
+tests
+pytest.ini
+.dbt/
+dbt_etl/

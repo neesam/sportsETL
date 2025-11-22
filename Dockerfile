@@ -1,3 +1,9 @@
-FROM apache/airflow:3.1.2
+FROM apache/airflow:3.1.2-python3.11
 
-RUN pip install --no-cache-dir google-cloud-storage google-cloud-bigquery dbt-core dbt-bigquery apache-airflow-providers-google nba_api
+WORKDIR /app
+
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .

@@ -5,6 +5,7 @@ import os
 import requests
 
 from airflow.providers.google.cloud.hooks.gcs import GCSHook
+from airflow.sdk import get_current_context
 import pandas as pd
 
 load_dotenv()
@@ -22,22 +23,23 @@ hook = GCSHook(gcp_conn_id="google_cloud_default")
 storage_client = hook.get_conn() 
 
 def ingest_nba():
+    context = get_current_context()
+    api_date = context['ti'].xcom_pull(key="api_date", task_ids="skip_if_not_release_date")      
+    local_date = context['ti'].xcom_pull(key="local_date", task_ids="skip_if_not_release_date")      
 
-    data_to_load = ingest()
+    data_to_load = extract(api_date)
     convert_to_csv(data_to_load)
-    upload_to_gcs()
+    upload_to_gcs(local_date)
 
-def ingest():
-
-    # game_date = date.isoformat()
+def extract(game_date):
 
     game_information = [ {"Washington Wizards": {}}, {"opponent": {}} ]
 
     opponents_name = ""
 
     # Get game ID and which team won and which team lost
-
-    game_url = 'https://v1.basketball.api-sports.io/games?date=2025-11-06&team=161&season=2025-2026'
+    game_url = f'https://v1.basketball.api-sports.io/games?date={game_date}&team=161&season=2025-2026'
+    print(game_url)
 
     payload = {}
     headers = {
@@ -46,12 +48,13 @@ def ingest():
         }
 
     response = requests.request("GET", game_url, headers=headers, data=payload)
-    response = response.json()
     
+    response = response.json()
+
     if response['response'][0]['id']:
 
         if response['response'][0]['teams']['home']['id'] == WIZARDS_ID:
-
+            
             opponents_name = response['response'][0]['teams']['away']['name']
             game_information[1] = {opponents_name: {}}
 
@@ -244,10 +247,11 @@ def convert_to_csv(data):
             flat_data.append(stats)
 
     df = pd.DataFrame(flat_data)
-    pd.DataFrame.to_csv(df, path_or_buf=f"{GAME_CSV}")
+    pd.DataFrame.to_csv(df, path_or_buf=f"/tmp/{GAME_CSV}", index=False)
 
-def upload_to_gcs():
+def upload_to_gcs(game_date):
 
     bucket = storage_client.get_bucket(f"{GCS_BUCKET}")
-    object_name_in_gcs_bucket = bucket.blob(f"wizards/game-{date.today().isoformat()}.csv")
-    object_name_in_gcs_bucket.upload_from_filename(f"{GAME_CSV}")
+    object_name_in_gcs_bucket = bucket.blob(f"wizards/game-{game_date}.csv")
+    object_name_in_gcs_bucket.upload_from_filename(f"/tmp/{GAME_CSV}")
+    logging.info("Sucessfully uploaded: " + f"{GCS_BUCKET}/wizards/game-{game_date}.csv")
