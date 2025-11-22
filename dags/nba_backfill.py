@@ -36,7 +36,7 @@ GCS_BUCKET = os.getenv("GCS_BUCKET")
 DBT_PROJECT_DIR = os.getenv("DBT_PROJECT_DIR")
 GCP_CONN_ID = os.getenv("GCP_CONN_ID")
 
-bq_hook = BigQueryHook(gcp_conn_id="google_cloud_default")
+bq_hook = BigQueryHook(gcp_conn_id=f"{GCP_CONN_ID}")
 bq_client = bq_hook.get_conn()
 bq_cursor = bq_client.cursor()
 
@@ -139,19 +139,19 @@ with DAG(
         gcp_conn_id=f"{GCP_CONN_ID}",
     )
 
-    # dbt_run_and_test = BashOperator(
-    #     task_id='dbt_run_and_test',
-    #     bash_command='''
-    #     cd {{ params.dbt_project_dir }} && \
-    #     dbt build 
-    #     ''',
-    #     params={
-    #         'dbt_project_dir': DBT_PROJECT_DIR
-    #     }
-    # )
+    dbt_run_and_test = BashOperator(
+        task_id='dbt_run_and_test',
+        bash_command='''
+        cd {{ params.dbt_project_dir }} && \
+        dbt build 
+        ''',
+        params={
+            'dbt_project_dir': DBT_PROJECT_DIR
+        }
+    )
 
     get_dates >> check_for_dates
     check_for_dates >> NBA_ingest_and_load_csv
     NBA_ingest_and_load_csv >> NBA_validate_team_game_stats
     NBA_validate_team_game_stats >> [NBA_load_outcomes_table_from_csv, NBA_load_stats_table_from_csv]
-    # NBA_create_table_from_csv >> dbt_run_and_test
+    NBA_load_stats_table_from_csv >> dbt_run_and_test
