@@ -12,7 +12,7 @@ load_dotenv()
 # Initialize environment variables
 
 GCS_BUCKET = os.getenv("GCS_BUCKET")
-GAMES_CSV = os.getenv("NFL_GAMES_CSV")
+GAMES_csv = os.getenv("NFL_GAMES_csv")
 
 # Initialize Google Cloud Platform client 
 
@@ -65,10 +65,10 @@ def ingestion():
 def convert_to_csv(games_list):
 
     df = pd.DataFrame(games_list)
-    pd.DataFrame.to_csv(df, path_or_buf=f"{GAMES_CSV}")
+    pd.DataFrame.to_csv(df, path_or_buf=f"{GAMES_csv}")
 
 def upload_to_gcs():
 
     bucket = storage_client.get_bucket(f"{GCS_BUCKET}")
     object_name_in_gcs_bucket = bucket.blob(f"NFL/games-{date.today().isoformat()}.csv")
-    object_name_in_gcs_bucket.upload_from_filename(f"{GAMES_CSV}")
+    object_name_in_gcs_bucket.upload_from_filename(f"{GAMES_csv}")

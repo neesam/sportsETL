@@ -96,7 +96,7 @@ RUN_DATES = [
     "2026-04-07",
     "2026-04-09",
     "2026-04-10",
-    "2026-04-12"
+    "2026-04-12",
 ]
 
 # Load env vars
@@ -105,83 +105,43 @@ BQ_DATASET = os.getenv("BQ_DATASET")
 BQ_TABLE = os.getenv("BQ_TABLE")
 GCP_PROJECT = os.getenv("GCP_PROJECT")
 WIZARDS_GAMES_STATS_TABLE = os.getenv("WIZARDS_GAMES_STATS_TABLE")
-WIZARDS_GAME_GCS_CSV = os.getenv("WIZARDS_GAME_GCS_CSV")
+WIZARDS_GAME_GCS_csv = os.getenv("WIZARDS_GAME_GCS_csv")
 GCS_BUCKET = os.getenv("GCS_BUCKET")
 
 with DAG(
     dag_id="sports",
     description="Gets data from sports APIs, loads to staging tables/GCS, performs dbt transformations, creates visualizations",
     start_date=pendulum.datetime(2025, 1, 1, tz="America/Denver"),
-    schedule='0 22 * * *',
+    schedule="0 22 * * *",
     catchup=False,
 ) as dag:
-        # def check_release_date(**context):
-    #     logical_date = context['logical_date']
-    
-    #     # Convert to your timezone
-    #     local_date = logical_date.in_timezone("America/Denver")
-        
-    #     # Format as string to compare with your list
-    #     local_date_str = local_date.strftime('%Y-%m-%d')
-    #     logical_date_str = logical_date.strftime('%Y-%m-%d')
-        
-    #     print(f"UTC execution_date: {logical_date}")
-    #     print(f"Local date (America/Denver): {local_date_str}")
-    #     print(f"Should run: {local_date_str in RUN_DATES}")
 
-    #     context = get_current_context()
-        
-    #     if local_date_str in RUN_DATES:
-    #         context['ti'].xcom_push('api_date', logical_date_str)
-    #         context['ti'].xcom_push('local_date', local_date_str)
-    #         return True
-    #     else:
-    #         return False
-
-    def check_release_date_static():
-        context = get_current_context() 
-        context['ti'].xcom_push('local_date', "2025-11-12")
-        context['ti'].xcom_push('api_date', "2025-11-13")
-        return True
-
-    skip_if_not_release_date = ShortCircuitOperator(
-        task_id='skip_if_not_release_date',
-        python_callable=check_release_date_static
+    ingest_and_load_csv = PythonOperator(
+        python_callable=ingest_nba,
+        task_id="ingest_and_load_csv",
     )
-    
-    # ESPN_ingest_and_load_csv = PythonOperator(
-    #     python_callable=ingest_espn,
-    #     task_id="ESPN_ingest_and_load_csv",
+
+    validate_team_game_stats = PythonOperator(
+        python_callable=validate_wizards, task_id="validate_team_game_stats"
+    )
+
+    # NBA_create_table_from_csv = BigQueryInsertJobOperator(
+    #     task_id="NBA_load_gcs_to_bq",
+    #     configuration={
+    #         "load": {
+    #             "sourceUris": [WIZARDS_GAME_GCS + "-{{ ti.xcom_pull(task_ids='skip_if_not_release_date', key='local_date') }}.csv"],
+    #             "destinationTable": {
+    #                 "projectId": f"{GCP_PROJECT}",
+    #                 "datasetId": f"{BQ_DATASET}",
+    #                 "tableId": f"{WIZARDS_GAMES_STATS_TABLE}",
+    #             },
+    #             "sourceFormat": "csv",
+    #             "writeDisposition": "WRITE_APPEND",
+    #             "autodetect": True,
+    #         }
+    #     },
+    #     gcp_conn_id="google_cloud_default",
     # )
 
-    NBA_ingest_and_load_csv = PythonOperator(
-        python_callable=ingest_nba,
-        task_id="NBA_ingest_and_load_csv",
-    )
-
-    NBA_validate_team_game_stats = PythonOperator(
-        python_callable=validate_wizards,
-        task_id="NBA_validate_team_game_stats"
-    )
-
-    NBA_create_table_from_csv = BigQueryInsertJobOperator(
-        task_id="NBA_load_gcs_to_bq",
-        configuration={
-            "load": {
-                "sourceUris": [WIZARDS_GAME_GCS_CSV + "-{{ ti.xcom_pull(task_ids='skip_if_not_release_date', key='local_date') }}.csv"],
-                "destinationTable": {
-                    "projectId": f"{GCP_PROJECT}",
-                    "datasetId": f"{BQ_DATASET}",
-                    "tableId": f"{WIZARDS_GAMES_STATS_TABLE}",
-                },
-                "sourceFormat": "CSV",
-                "writeDisposition": "WRITE_APPEND",
-                "autodetect": True,
-            }
-        },
-        gcp_conn_id="google_cloud_default",
-    )
-
-    skip_if_not_release_date >> NBA_ingest_and_load_csv
-    NBA_ingest_and_load_csv >> NBA_validate_team_game_stats
-    NBA_validate_team_game_stats >> NBA_create_table_from_csv
+    ingest_and_load_csv >> validate_team_game_stats
+    # NBA_validate_team_game_stats >> NBA_create_table_from_csv

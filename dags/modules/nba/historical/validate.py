@@ -16,8 +16,8 @@ GCS_BUCKET = os.getenv("GCS_BUCKET")
 WIZARDS_ID = os.getenv("WIZARDS_ID")
 API_SPORTS_KEY = os.getenv("API_SPORTS_KEY")
 GCP_CONN_ID = os.getenv("GCP_CONN_ID")
-OUTCOME_CSV = os.getenv("OUTCOME_CSV")
-GAME_CSV = os.getenv("WIZARDS_GAME_CSV")
+OUTCOME_PARQUET = os.getenv("OUTCOME_PARQUET")
+GAME_PARQUET = os.getenv("WIZARDS_GAME_PARQUET")
 
 # Initialize Google Cloud Platform client 
 
@@ -40,12 +40,12 @@ def validate_wizards():
 
     for file in filenames:
         try:
-            file_type = get_csv(file)
+            file_type = get_parquet(file)
             validate(file_type)
         except Exception as err:
             print(err)
 
-def get_csv(file):
+def get_parquet(file):
 
     bucket = storage_client.get_bucket(f"{GCS_BUCKET}")
     blob = bucket.get_blob(f"{file}")
@@ -54,13 +54,13 @@ def get_csv(file):
     
     try:
         if "outcome" in blob.name:
-            blob.download_to_filename(f"{OUTCOME_CSV}")
+            blob.download_to_filename(f"{OUTCOME_PARQUET}")
             file_type = "outcome"
-            print("Got CSV from bucket:", file)
+            print("Got parquet from bucket:", file)
         else:
-            blob.download_to_filename(f"{GAME_CSV}")
+            blob.download_to_filename(f"{GAME_PARQUET}")
             file_type = "stats"
-            print("Got CSV from bucket:", file)
+            print("Got parquet from bucket:", file)
     except Exception as e:
         print("Something with if statement")
         print(e.__cause__)
@@ -72,8 +72,8 @@ def get_csv(file):
 def validate(file_type):
 
     if file_type == 'stats':
-        df = pd.read_csv(f"{GAME_CSV}")
+        df = pd.read_parquet(f"{GAME_PARQUET}")
         SportsETLHandler.NBAValidator.validate_stats(df)
     elif file_type == 'outcome':
-        df = pd.read_csv(f"{OUTCOME_CSV}")
+        df = pd.read_parquet(f"{OUTCOME_PARQUET}")
         SportsETLHandler.NBAValidator.validate_outcome(df)
